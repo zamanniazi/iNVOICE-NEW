@@ -15,7 +15,11 @@ import {
   Percent, 
   FileText,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Save,
+  ArrowRight,
+  ShieldCheck,
+  Check
 } from 'lucide-react';
 import { InvoiceData, InvoiceItem } from '../types';
 import { createEmptyItem } from '../data/constants';
@@ -33,6 +37,10 @@ interface InvoiceFormProps {
   onChange: (updated: InvoiceData) => void;
   onReset: () => void;
   onLoadSample: () => void;
+  onSaveAndNext: () => void;
+  onSaveExisting?: () => void;
+  isEditingSaved?: boolean;
+  hasSavedJustNow?: boolean;
 }
 
 export const InvoiceForm: React.FC<InvoiceFormProps> = ({
@@ -40,6 +48,10 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   onChange,
   onReset,
   onLoadSample,
+  onSaveAndNext,
+  onSaveExisting,
+  isEditingSaved,
+  hasSavedJustNow,
 }) => {
   const [showMoreCompany, setShowMoreCompany] = useState(false);
   const [showMoreCustomer, setShowMoreCustomer] = useState(false);
@@ -151,12 +163,21 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Top Quick Bar: Sample / Reset actions */}
+      {/* Top Quick Bar: Sample / Reset & Status */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-stone-200 shadow-xs">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-xs font-semibold text-stone-700">Invoice Draft</span>
-          <span className="text-xs text-stone-400 font-mono">#{invoice.invoiceNumber}</span>
+          <span className={`w-2.5 h-2.5 rounded-full ${isEditingSaved ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`}></span>
+          <span className="text-xs font-semibold text-stone-700">
+            {isEditingSaved ? 'Editing Saved Invoice' : 'Current Draft'}
+          </span>
+          <span className="text-xs font-mono px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-stone-800 font-bold">
+            #{invoice.invoiceNumber}
+          </span>
+          {isEditingSaved && (
+            <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded font-medium">
+              Changes will update this saved record or you can save as new
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -166,13 +187,13 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
             title="Fill with professional sample data"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Load Sample Data</span>
+            <span>Load Sample</span>
           </button>
           <button
             type="button"
             onClick={onReset}
             className="px-3 py-1.5 rounded-lg text-xs font-medium text-stone-500 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center gap-1.5"
-            title="Clear all fields"
+            title="Clear and start new"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
@@ -827,6 +848,57 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
               className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-300 rounded-lg focus:bg-white focus:border-amber-500 outline-none resize-none"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Save & Advance Action Bar */}
+      <div className="bg-stone-900 text-white p-5 rounded-2xl border border-stone-800 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-amber-400" />
+            <h4 className="text-sm font-bold text-white">Save &amp; Continue Workflow</h4>
+          </div>
+          <p className="text-xs text-stone-400 max-w-md">
+            Save this invoice permanently. Previous saved invoices remain locked and untouched. The next numbered invoice will open automatically with your data preserved for editing.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {isEditingSaved && onSaveExisting && (
+            <button
+              type="button"
+              onClick={onSaveExisting}
+              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              title="Update currently opened saved invoice directly"
+            >
+              <Save className="w-4 h-4 text-stone-400" />
+              <span>Update Saved</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onSaveAndNext}
+            className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm ${
+              hasSavedJustNow
+                ? 'bg-emerald-500 text-white'
+                : 'bg-amber-500 hover:bg-amber-400 text-stone-950'
+            }`}
+            title="Save as new and prepare next numbered invoice"
+          >
+            {hasSavedJustNow ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Saved as New!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Save as New &amp; Next Invoice</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
         </div>
       </div>
 

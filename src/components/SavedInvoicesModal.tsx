@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FolderOpen, Trash2, ArrowRight, PlusCircle, Calendar, DollarSign, Building, User } from 'lucide-react';
+import { X, FolderOpen, Trash2, ArrowRight, PlusCircle, Edit3, ShieldCheck } from 'lucide-react';
 import { InvoiceData } from '../types';
 import { calculateSubtotal, calculateTaxAmount, calculateDiscountAmount, calculateGrandTotal, formatCurrency } from '../utils/calculations';
 
@@ -10,6 +10,8 @@ interface SavedInvoicesModalProps {
   onLoadInvoice: (invoice: InvoiceData) => void;
   onDeleteInvoice: (id: string) => void;
   onNewInvoice: () => void;
+  activeInvoiceId?: string;
+  isEditingSaved?: boolean;
 }
 
 export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
@@ -19,6 +21,8 @@ export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
   onLoadInvoice,
   onDeleteInvoice,
   onNewInvoice,
+  activeInvoiceId,
+  isEditingSaved,
 }) => {
   if (!isOpen) return null;
 
@@ -35,7 +39,7 @@ export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
             <div>
               <h2 className="text-base font-bold text-stone-900">Saved Invoices</h2>
               <p className="text-xs text-stone-500">
-                {savedInvoices.length} {savedInvoices.length === 1 ? 'invoice' : 'invoices'} saved in your browser
+                {savedInvoices.length} {savedInvoices.length === 1 ? 'invoice' : 'invoices'} permanently saved &bull; Locked until opened
               </p>
             </div>
           </div>
@@ -57,7 +61,7 @@ export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
               </div>
               <p className="text-sm font-semibold text-stone-700">No saved invoices yet</p>
               <p className="text-xs text-stone-500 max-w-xs mx-auto">
-                Click the &ldquo;Save&rdquo; button in the header bar to save your active invoice anytime.
+                Click &ldquo;Save &amp; Next Invoice&rdquo; to store your invoice safely and immediately advance to the next number.
               </p>
               <button
                 type="button"
@@ -77,11 +81,16 @@ export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
               const tax = calculateTaxAmount(subtotal, inv.taxRate);
               const discount = calculateDiscountAmount(subtotal, inv.discountRate);
               const total = calculateGrandTotal(subtotal, tax, discount);
+              const isCurrentlyActive = inv.id === activeInvoiceId && isEditingSaved;
 
               return (
                 <div
                   key={inv.id}
-                  className="p-4 rounded-xl border border-stone-200 hover:border-amber-400 hover:shadow-xs bg-white transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    isCurrentlyActive
+                      ? 'bg-amber-50/70 border-amber-400 shadow-xs'
+                      : 'bg-white border-stone-200 hover:border-amber-400 hover:shadow-xs'
+                  }`}
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -91,16 +100,23 @@ export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
                       <span className="text-xs text-stone-500">
                         {inv.issueDate}
                       </span>
+                      {isCurrentlyActive ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 flex items-center gap-1">
+                          <Edit3 className="w-3 h-3" /> Currently Editing
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-emerald-600" /> Saved &amp; Protected
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-700 pt-0.5">
-                      <span className="font-semibold text-stone-900 flex items-center gap-1">
-                        <Building className="w-3.5 h-3.5 text-stone-400" />
+                      <span className="font-semibold text-stone-900">
                         {inv.company.name || 'Untitled Company'}
                       </span>
                       <span className="text-stone-400">&bull;</span>
-                      <span className="text-stone-600 flex items-center gap-1">
-                        <User className="w-3.5 h-3.5 text-stone-400" />
+                      <span className="text-stone-600">
                         {inv.customer.name || 'Untitled Customer'}
                       </span>
                     </div>
@@ -118,18 +134,22 @@ export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => {
                           onLoadInvoice(inv);
                           onClose();
                         }}
-                        className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
-                        title="Load this invoice into editor"
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                          isCurrentlyActive
+                            ? 'bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold'
+                            : 'bg-stone-900 hover:bg-stone-800 text-white'
+                        }`}
+                        title="Open this saved invoice to view or edit"
                       >
-                        <span>Open</span>
-                        <ArrowRight className="w-3 h-3" />
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit / Open</span>
                       </button>
 
                       <button
@@ -159,12 +179,13 @@ export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
             className="text-xs text-amber-800 font-bold hover:underline flex items-center gap-1"
           >
             <PlusCircle className="w-3.5 h-3.5" />
-            <span>Create Brand New Invoice</span>
+            <span>Start Fresh Invoice</span>
           </button>
+          
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 text-xs font-medium transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 text-xs font-semibold transition-colors"
           >
             Close
           </button>

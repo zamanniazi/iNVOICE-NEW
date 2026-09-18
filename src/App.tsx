@@ -3,9 +3,11 @@ import { Header } from './components/Header';
 import { InvoiceForm } from './components/InvoiceForm';
 import { InvoicePreview } from './components/InvoicePreview';
 import { SavedInvoicesModal } from './components/SavedInvoicesModal';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { InvoiceData } from './types';
 import { getInitialInvoice, SUPPORTED_CURRENCIES, createEmptyItem } from './data/constants';
 import { exportInvoiceToCSV } from './utils/calculations';
+import { getNextInvoiceNumber } from './utils/numbering';
 
 const DRAFT_STORAGE_KEY = 'invoice_maker_current_draft';
 const SAVED_STORAGE_KEY = 'invoice_maker_saved_list';
@@ -37,6 +39,8 @@ export default function App() {
     return [];
   });
 
+  // Tracks if the user explicitly loaded a saved invoice to edit it
+  const [isEditingSaved, setIsEditingSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<'edit' | 'preview' | 'split'>('split');
   const [isSavedModalOpen, setIsSavedModalOpen] = useState(false);
   const [hasSavedJustNow, setHasSavedJustNow] = useState(false);
@@ -60,17 +64,17 @@ export default function App() {
     }
   }, [savedInvoices]);
 
-  // Temporary toast notification helper
+  // Toast notification helper
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => {
+      setToastMessage((curr) => (curr === msg ? null : curr));
+    }, 3000);
   };
 
-  // Currency handler
+  // Switch Currency
   const handleCurrencyChange = (currencyCode: string) => {
-    const config = SUPPORTED_CURRENCIES.find((c) => c.code === currencyCode);
-    if (!config) return;
-
+    const config = SUPPORTED_CURRENCIES.find((c) => c.code === currencyCode) || SUPPORTED_CURRENCIES[0];
     setInvoice((prev) => ({
       ...prev,
       currency: config.code,
@@ -80,34 +84,75 @@ export default function App() {
     showToast(`Currency changed to ${config.code} (${config.symbol})`);
   };
 
-  // Manual save to Saved Invoices list
-  const handleSaveInvoice = () => {
-    const existingIndex = savedInvoices.findIndex((inv) => inv.id === invoice.id);
-    let updatedList: InvoiceData[];
+  /**
+   * Save as New & Advance to Next Number (Core user request):
+   * 1. Preserves the current invoice into savedInvoices under a unique immutable snapshot.
+   * 2. Auto-increments invoiceNumber (e.g. INV-001 -> INV-002, 101 -> 102).
+   * 3. Retains all previous company/customer/items/values data in the editor so the user can easily continue.
+   * 4. Previous saved invoice is locked and cannot be changed unless explicitly opened via Edit in Saved modal.
+   */
+  const handleSaveAndNext = () => {
+    const savedSnapshot: InvoiceData = {
+      ...invoice,
+      id: 'inv_saved_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      updatedAt: new Date().toISOString(),
+    };
 
-    if (existingIndex >= 0) {
-      updatedList = [...savedInvoices];
-      updatedList[existingIndex] = { ...invoice, updatedAt: new Date().toISOString() };
-    } else {
-      updatedList = [{ ...invoice, updatedAt: new Date().toISOString() }, ...savedInvoices];
-    }
+    // Calculate next auto-incremented invoice number
+    const nextNum = getNextInvoiceNumber(invoice.invoiceNumber || 'INV-001');
 
-    setSavedInvoices(updatedList);
+    // Add to saved list without overwriting any existing saved invoice
+    setSavedInvoices((prev) => [savedSnapshot, ...prev]);
+
+    // Keep all current data intact for editing, assign a fresh draft id & next invoice number
+    const nextDraft: InvoiceData = {
+      ...invoice,
+      id: 'inv_draft_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      invoiceNumber: nextNum,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setInvoice(nextDraft);
+    setIsEditingSaved(false);
     setHasSavedJustNow(true);
-    showToast(`Invoice #${invoice.invoiceNumber} saved!`);
+    showToast(`Invoice #${savedSnapshot.invoiceNumber} saved! Now on #${nextNum}`);
     setTimeout(() => setHasSavedJustNow(false), 2200);
   };
 
-  // Load a saved invoice
+  /**
+   * Update existing saved invoice:
+   * Only used when the user explicitly opened an invoice from Saved Invoices to edit it.
+   */
+  const handleSaveExisting = () => {
+    const existingIndex = savedInvoices.findIndex((inv) => inv.id === invoice.id);
+    if (existingIndex >= 0) {
+      const updatedList = [...savedInvoices];
+      updatedList[existingIndex] = { ...invoice, updatedAt: new Date().toISOString() };
+      setSavedInvoices(updatedList);
+      setHasSavedJustNow(true);
+      showToast(`Updated saved invoice #${invoice.invoiceNumber}!`);
+      setTimeout(() => setHasSavedJustNow(false), 2200);
+    } else {
+      // If not found in saved list, treat as Save & Next
+      handleSaveAndNext();
+    }
+  };
+
+  // Load a saved invoice explicitly for viewing / editing
   const handleLoadInvoice = (selectedInvoice: InvoiceData) => {
     setInvoice(selectedInvoice);
-    showToast(`Loaded invoice #${selectedInvoice.invoiceNumber}`);
+    setIsEditingSaved(true);
+    showToast(`Opened saved invoice #${selectedInvoice.invoiceNumber} for editing`);
   };
 
   // Delete a saved invoice
   const handleDeleteSavedInvoice = (id: string) => {
     const updated = savedInvoices.filter((inv) => inv.id !== id);
     setSavedInvoices(updated);
+    if (invoice.id === id) {
+      setIsEditingSaved(false);
+    }
     showToast('Saved invoice deleted');
   };
 
@@ -118,9 +163,13 @@ export default function App() {
     nextMonth.setDate(today.getDate() + 14);
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
+    // Determine starting number from highest saved or default INV-001
+    const latestSaved = savedInvoices[0];
+    const initialNum = latestSaved ? getNextInvoiceNumber(latestSaved.invoiceNumber) : 'INV-001';
+
     const newInv: InvoiceData = {
       id: 'inv_' + Math.random().toString(36).substring(2, 9),
-      invoiceNumber: `INV-${today.getFullYear()}-${String(Math.floor(100 + Math.random() * 900))}`,
+      invoiceNumber: initialNum,
       issueDate: formatDate(today),
       dueDate: formatDate(nextMonth),
       company: {
@@ -148,12 +197,14 @@ export default function App() {
     };
 
     setInvoice(newInv);
+    setIsEditingSaved(false);
     showToast('Started new blank invoice');
   };
 
   // Load standard sample data
   const handleLoadSample = () => {
     setInvoice(getInitialInvoice());
+    setIsEditingSaved(false);
     showToast('Loaded sample invoice data');
   };
 
@@ -162,17 +213,21 @@ export default function App() {
     window.print();
   }, []);
 
-  // Keyboard shortcut listener (Ctrl+S / Cmd+S to save, Ctrl+P / Cmd+P to print)
+  // Keyboard shortcut listener (Ctrl+S / Cmd+S to save)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        handleSaveInvoice();
+        if (isEditingSaved) {
+          handleSaveExisting();
+        } else {
+          handleSaveAndNext();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [invoice, savedInvoices]);
+  }, [invoice, isEditingSaved, savedInvoices]);
 
   return (
     <div className="min-h-screen flex flex-col bg-stone-100 text-stone-900 selection:bg-amber-200">
@@ -184,7 +239,9 @@ export default function App() {
         currency={invoice.currency}
         onCurrencyChange={handleCurrencyChange}
         onPrint={handlePrint}
-        onSave={handleSaveInvoice}
+        onSave={isEditingSaved ? handleSaveExisting : handleSaveAndNext}
+        onSaveAndNext={handleSaveAndNext}
+        isEditingSaved={isEditingSaved}
         onOpenSaved={() => setIsSavedModalOpen(true)}
         onLoadSample={handleLoadSample}
         onReset={handleNewInvoice}
@@ -219,6 +276,10 @@ export default function App() {
                 onChange={setInvoice}
                 onReset={handleNewInvoice}
                 onLoadSample={handleLoadSample}
+                onSaveAndNext={handleSaveAndNext}
+                onSaveExisting={handleSaveExisting}
+                isEditingSaved={isEditingSaved}
+                hasSavedJustNow={hasSavedJustNow}
               />
             </div>
 
@@ -239,6 +300,10 @@ export default function App() {
               onChange={setInvoice}
               onReset={handleNewInvoice}
               onLoadSample={handleLoadSample}
+              onSaveAndNext={handleSaveAndNext}
+              onSaveExisting={handleSaveExisting}
+              isEditingSaved={isEditingSaved}
+              hasSavedJustNow={hasSavedJustNow}
             />
           </div>
         )}
@@ -262,7 +327,12 @@ export default function App() {
         onLoadInvoice={handleLoadInvoice}
         onDeleteInvoice={handleDeleteSavedInvoice}
         onNewInvoice={handleNewInvoice}
+        activeInvoiceId={invoice.id}
+        isEditingSaved={isEditingSaved}
       />
+
+      {/* Offline Status Indicator */}
+      <OfflineIndicator />
 
     </div>
   );

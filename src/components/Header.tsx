@@ -12,6 +12,7 @@ import {
   Check
 } from 'lucide-react';
 import { SUPPORTED_CURRENCIES } from '../data/constants';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   activeTab: 'edit' | 'preview' | 'split';
@@ -20,6 +21,8 @@ interface HeaderProps {
   onCurrencyChange: (currencyCode: string) => void;
   onPrint: () => void;
   onSave: () => void;
+  onSaveAndNext?: () => void;
+  isEditingSaved?: boolean;
   onOpenSaved: () => void;
   onLoadSample: () => void;
   onReset: () => void;
@@ -35,6 +38,8 @@ export const Header: React.FC<HeaderProps> = ({
   onCurrencyChange,
   onPrint,
   onSave,
+  onSaveAndNext,
+  isEditingSaved,
   onOpenSaved,
   onLoadSample,
   onReset,
@@ -152,10 +157,10 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onSave}
               className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 hasSavedJustNow
-                  ? 'bg-emerald-600 text-white border-emerald-500'
-                  : 'bg-stone-800 hover:bg-stone-700 text-stone-200 border-stone-700'
+                  ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                  : 'bg-amber-500 hover:bg-amber-400 text-stone-950 border-amber-400 font-bold shadow-xs'
               }`}
-              title="Save current invoice locally"
+              title={isEditingSaved ? "Update saved invoice" : "Save as New & Next Invoice"}
             >
               {hasSavedJustNow ? (
                 <>
@@ -164,8 +169,8 @@ export const Header: React.FC<HeaderProps> = ({
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 text-stone-400" />
-                  <span className="hidden sm:inline">Save</span>
+                  <Save className="w-4 h-4 text-stone-950" />
+                  <span className="hidden sm:inline">{isEditingSaved ? 'Update' : 'Save & Next'}</span>
                 </>
               )}
             </button>
@@ -181,14 +186,16 @@ export const Header: React.FC<HeaderProps> = ({
               <span>CSV</span>
             </button>
 
+            <PWAInstallButton />
+
             <button
               id="print-invoice-btn"
               type="button"
               onClick={onPrint}
-              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-stone-950 font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+              className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 font-semibold text-xs flex items-center gap-1.5 transition-all"
               title="Print or Save as PDF"
             >
-              <Printer className="w-4 h-4 text-stone-950" />
+              <Printer className="w-4 h-4 text-stone-300" />
               <span>Print / PDF</span>
             </button>
           </div>

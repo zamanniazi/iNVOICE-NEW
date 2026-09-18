@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c1917" />
+      <stop offset="100%" stop-color="#0c0a09" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Background base rounded rectangle with safe zone padding -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)" />
+
+  <!-- Accent Circle Badge -->
+  <circle cx="256" cy="256" r="210" fill="#292524" opacity="0.4" />
+
+  <!-- Sheet of Paper / Invoice Backdrop -->
+  <g filter="url(#shadow)">
+    <path d="M148 116 C148 102.7 158.7 92 172 92 L296 92 L364 160 L364 396 C364 409.3 353.3 420 340 420 L172 420 C158.7 420 148 409.3 148 396 Z" fill="#ffffff" />
+    <!-- Folded top-right corner -->
+    <path d="M296 92 L296 150 C296 155.5 300.5 160 306 160 L364 160 Z" fill="#e7e5e4" />
+  </g>
+
+  <!-- Golden Header accent line -->
+  <rect x="180" y="148" width="80" height="16" rx="8" fill="url(#goldGrad)" />
+
+  <!-- Document Line items -->
+  <rect x="180" y="196" width="152" height="12" rx="6" fill="#a8a29e" />
+  <rect x="180" y="232" width="100" height="12" rx="6" fill="#d6d3d1" />
+  <rect x="300" y="232" width="32" height="12" rx="6" fill="#a8a29e" />
+  
+  <rect x="180" y="264" width="84" height="12" rx="6" fill="#d6d3d1" />
+  <rect x="300" y="264" width="32" height="12" rx="6" fill="#a8a29e" />
+
+  <line x1="180" y1="300" x2="332" y2="300" stroke="#e7e5e4" stroke-width="4" stroke-linecap="round" />
+
+  <!-- Multiplication Badge & Total -->
+  <circle cx="340" cy="356" r="46" fill="url(#goldGrad)" filter="url(#shadow)" />
+  <text x="340" y="367" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="34" font-weight="900" fill="#0c0a09" text-anchor="middle">$</text>
+  
+  <!-- Total bar in invoice -->
+  <rect x="180" y="324" width="60" height="12" rx="6" fill="#78716c" />
+  <rect x="180" y="354" width="90" height="16" rx="8" fill="#1c1917" />
+</svg>

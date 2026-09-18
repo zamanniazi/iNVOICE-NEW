@@ -29,7 +29,7 @@ export const getInitialInvoice = (): InvoiceData => {
 
   return {
     id: 'inv_' + Math.random().toString(36).substring(2, 9),
-    invoiceNumber: `INV-${today.getFullYear()}-${String(Math.floor(100 + Math.random() * 900))}`,
+    invoiceNumber: 'INV-001',
     issueDate: formatDate(today),
     dueDate: formatDate(nextMonth),
     company: {
