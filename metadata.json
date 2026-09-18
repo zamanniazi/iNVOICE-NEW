@@ -1,0 +1,6 @@
+{
+  "name": "Invoice Maker",
+  "description": "Create professional invoices with company details, customer info, unlimited auto-calculated line items, and instant print preview.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
