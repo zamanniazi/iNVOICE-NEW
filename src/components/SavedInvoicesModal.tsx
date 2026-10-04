@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, FolderOpen, Trash2, ArrowRight, PlusCircle, Edit3, ShieldCheck } from 'lucide-react';
 import { InvoiceData } from '../types';
-import { calculateSubtotal, calculateTaxAmount, calculateDiscountAmount, calculateGrandTotal, formatCurrency } from '../utils/calculations';
+import { calculateSubtotal, calculateTaxAmount, getInvoiceDiscountAmount, calculateGrandTotal, formatCurrency } from '../utils/calculations';
 
 interface SavedInvoicesModalProps {
   isOpen: boolean;
@@ -79,7 +79,7 @@ export const SavedInvoicesModal: React.FC<SavedInvoicesModalProps> = ({
             savedInvoices.map((inv) => {
               const subtotal = calculateSubtotal(inv.items);
               const tax = calculateTaxAmount(subtotal, inv.taxRate);
-              const discount = calculateDiscountAmount(subtotal, inv.discountRate);
+              const discount = getInvoiceDiscountAmount(inv, subtotal);
               const total = calculateGrandTotal(subtotal, tax, discount);
               const isCurrentlyActive = inv.id === activeInvoiceId && isEditingSaved;
 

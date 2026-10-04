@@ -1,4 +1,13 @@
-import { CurrencyConfig, InvoiceData } from '../types';
+import { ColumnLabels, CurrencyConfig, InvoiceData } from '../types';
+
+export const DEFAULT_COLUMN_LABELS: ColumnLabels = {
+  description: 'Value Name / Description',
+  unitPrice: 'One Piece Price',
+  pieces: 'Pieces',
+  quantity: 'Quantity',
+  totalPieces: 'Total Pcs',
+  finalPrice: 'Final Price',
+};
 
 export const SUPPORTED_CURRENCIES: CurrencyConfig[] = [
   { code: 'USD', symbol: '$', name: 'US Dollar ($)' },
@@ -18,6 +27,7 @@ export const createEmptyItem = () => ({
   name: '',
   unitPrice: 0,
   quantity: 1,
+  multiplier: 1,
 });
 
 export const getInitialInvoice = (): InvoiceData => {
@@ -48,27 +58,33 @@ export const getInitialInvoice = (): InvoiceData => {
     items: [
       {
         id: 'item_1',
-        name: 'Custom Web Portal Development',
-        unitPrice: 1200,
-        quantity: 1,
+        name: 'Class Exam Papers (20 Students × 8 Subjects)',
+        unitPrice: 5,
+        quantity: 20,
+        multiplier: 8,
       },
       {
         id: 'item_2',
-        name: 'UI/UX Design Wireframes & Mockups',
-        unitPrice: 450,
-        quantity: 2,
+        name: 'Custom Web Portal Development',
+        unitPrice: 1200,
+        quantity: 1,
+        multiplier: 1,
       },
       {
         id: 'item_3',
-        name: 'Cloud Hosting & SSL Setup',
-        unitPrice: 150,
-        quantity: 3,
+        name: 'UI/UX Design Wireframes & Mockups',
+        unitPrice: 450,
+        quantity: 2,
+        multiplier: 1,
       },
     ],
+    columnLabels: { ...DEFAULT_COLUMN_LABELS },
     currency: 'USD',
     currencySymbol: '$',
     taxRate: 0,
     discountRate: 0,
+    discountType: 'amount',
+    discountAmountValue: 0,
     notes: 'Thank you for your business! Please remit payment within 14 days of issue date.',
     paymentTerms: 'Payment via Bank Transfer / Wire to Apex Solutions Ltd.',
     createdAt: new Date().toISOString(),

@@ -1,11 +1,13 @@
 import React from 'react';
 import { Printer, Download, Building2, User, CheckCircle2 } from 'lucide-react';
-import { InvoiceData } from '../types';
+import { ColumnLabels, InvoiceData } from '../types';
+import { DEFAULT_COLUMN_LABELS } from '../data/constants';
 import { 
+  calculateTotalPieces,
   calculateItemTotal, 
   calculateSubtotal, 
   calculateTaxAmount, 
-  calculateDiscountAmount, 
+  getInvoiceDiscountAmount,
   calculateGrandTotal, 
   formatCurrency,
   exportInvoiceToCSV
@@ -20,9 +22,13 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   invoice,
   onPrint,
 }) => {
+  const labels: ColumnLabels = {
+    ...DEFAULT_COLUMN_LABELS,
+    ...(invoice.columnLabels || {}),
+  };
   const subtotal = calculateSubtotal(invoice.items);
   const taxAmount = calculateTaxAmount(subtotal, invoice.taxRate);
-  const discountAmount = calculateDiscountAmount(subtotal, invoice.discountRate);
+  const discountAmount = getInvoiceDiscountAmount(invoice, subtotal);
   const grandTotal = calculateGrandTotal(subtotal, taxAmount, discountAmount);
 
   return (
@@ -133,14 +139,17 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
               <thead>
                 <tr className="border-b-2 border-stone-800 text-[11px] font-bold uppercase tracking-wider text-stone-600">
                   <th className="py-3 px-2 w-8 text-center">#</th>
-                  <th className="py-3 px-2">Value Name / Description</th>
-                  <th className="py-3 px-2 text-right w-28">Price / Piece</th>
-                  <th className="py-3 px-2 text-right w-24">Pieces</th>
-                  <th className="py-3 px-2 text-right w-28">Auto Total</th>
+                  <th className="py-3 px-2">{labels.description}</th>
+                  <th className="py-3 px-2 text-right w-24">{labels.unitPrice}</th>
+                  <th className="py-3 px-2 text-center w-28">{labels.pieces} &times; {labels.quantity}</th>
+                  <th className="py-3 px-2 text-right w-24">{labels.totalPieces}</th>
+                  <th className="py-3 px-2 text-right w-28">{labels.finalPrice}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200 text-xs sm:text-sm">
                 {invoice.items.map((item, idx) => {
+                  const mult = item.multiplier !== undefined && item.multiplier !== null ? item.multiplier : 1;
+                  const totalPieces = calculateTotalPieces(item);
                   const lineTotal = calculateItemTotal(item);
                   return (
                     <tr key={item.id} className="hover:bg-stone-50/50 transition-colors">
@@ -153,8 +162,11 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
                       <td className="py-3 px-2 text-right font-mono text-stone-700">
                         {formatCurrency(item.unitPrice, invoice.currencySymbol)}
                       </td>
-                      <td className="py-3 px-2 text-right font-mono text-stone-700">
-                        {item.quantity}
+                      <td className="py-3 px-2 text-center font-mono text-stone-600">
+                        {item.quantity} &times; {mult}
+                      </td>
+                      <td className="py-3 px-2 text-right font-mono font-semibold text-stone-800">
+                        {totalPieces}
                       </td>
                       <td className="py-3 px-2 text-right font-mono font-bold text-stone-950">
                         {formatCurrency(lineTotal, invoice.currencySymbol)}
@@ -194,9 +206,11 @@ export const InvoicePreview: React.FC<InvoicePreviewProps> = ({
                 </span>
               </div>
 
-              {invoice.discountRate > 0 && (
+              {discountAmount > 0 && (
                 <div className="flex justify-between text-emerald-700">
-                  <span>Discount ({invoice.discountRate}%):</span>
+                  <span>
+                    Discount{invoice.discountType === 'percent' && invoice.discountRate > 0 ? ` (${invoice.discountRate}%)` : ''}:
+                  </span>
                   <span className="font-mono font-semibold">
                     -{formatCurrency(discountAmount, invoice.currencySymbol)}
                   </span>

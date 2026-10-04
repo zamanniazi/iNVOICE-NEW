@@ -19,15 +19,18 @@ import {
   Save,
   ArrowRight,
   ShieldCheck,
-  Check
+  Check,
+  Edit3,
+  Tag
 } from 'lucide-react';
-import { InvoiceData, InvoiceItem } from '../types';
-import { createEmptyItem } from '../data/constants';
+import { ColumnLabels, InvoiceData, InvoiceItem } from '../types';
+import { createEmptyItem, DEFAULT_COLUMN_LABELS } from '../data/constants';
 import { 
+  calculateTotalPieces,
   calculateItemTotal, 
   calculateSubtotal, 
   calculateTaxAmount, 
-  calculateDiscountAmount, 
+  getInvoiceDiscountAmount,
   calculateGrandTotal, 
   formatCurrency 
 } from '../utils/calculations';
@@ -55,7 +58,31 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 }) => {
   const [showMoreCompany, setShowMoreCompany] = useState(false);
   const [showMoreCustomer, setShowMoreCustomer] = useState(false);
-  const [showTaxDiscount, setShowTaxDiscount] = useState(false);
+  const [showMobileColEditor, setShowMobileColEditor] = useState(false);
+
+  const labels: ColumnLabels = {
+    ...DEFAULT_COLUMN_LABELS,
+    ...(invoice.columnLabels || {}),
+  };
+
+  const handleColumnLabelChange = (field: keyof ColumnLabels, value: string) => {
+    onChange({
+      ...invoice,
+      columnLabels: {
+        ...labels,
+        [field]: value,
+      },
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  const resetColumnLabels = () => {
+    onChange({
+      ...invoice,
+      columnLabels: { ...DEFAULT_COLUMN_LABELS },
+      updatedAt: new Date().toISOString(),
+    });
+  };
 
   // Line item handlers
   const handleItemChange = (
@@ -66,7 +93,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     const newItems = [...invoice.items];
     const targetItem = { ...newItems[index] };
 
-    if (field === 'unitPrice' || field === 'quantity') {
+    if (field === 'unitPrice' || field === 'quantity' || field === 'multiplier') {
       const numVal = parseFloat(value as string);
       targetItem[field] = isNaN(numVal) ? 0 : numVal;
     } else {
@@ -157,7 +184,8 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   // Calculations
   const subtotal = calculateSubtotal(invoice.items);
   const taxAmount = calculateTaxAmount(subtotal, invoice.taxRate);
-  const discountAmount = calculateDiscountAmount(subtotal, invoice.discountRate);
+  const discountType = invoice.discountType || 'amount';
+  const discountAmount = getInvoiceDiscountAmount(invoice, subtotal);
   const grandTotal = calculateGrandTotal(subtotal, taxAmount, discountAmount);
 
   return (
@@ -518,11 +546,27 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
               </span>
             </div>
             <p className="text-xs text-stone-500 mt-1">
-              Add value name, one piece price, number of pieces &bull; Auto-multiplied into line totals
+              Click any column heading below to rename it (e.g. change <span className="font-semibold text-stone-700">&ldquo;Pieces&rdquo;</span> to <span className="font-semibold text-stone-700">&ldquo;Students&rdquo;</span> or <span className="font-semibold text-stone-700">&ldquo;Quantity&rdquo;</span> to <span className="font-semibold text-stone-700">&ldquo;Subjects&rdquo;</span>)
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowMobileColEditor(!showMobileColEditor)}
+              className="md:hidden px-2.5 py-1 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors flex items-center gap-1"
+            >
+              <Edit3 className="w-3 h-3" />
+              <span>Edit Column Names</span>
+            </button>
+            <button
+              type="button"
+              onClick={resetColumnLabels}
+              className="px-2.5 py-1 text-xs font-medium text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"
+              title="Reset column headings to default"
+            >
+              Reset Headings
+            </button>
             <button
               type="button"
               onClick={() => addMultipleItems(5)}
@@ -544,20 +588,152 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
           </div>
         </div>
 
+        {/* Mobile Editable Column Headings Drawer */}
+        {showMobileColEditor && (
+          <div className="md:hidden p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 flex items-center gap-1">
+                <Edit3 className="w-3 h-3" /> Customize Column Headings
+              </span>
+              <button
+                type="button"
+                onClick={resetColumnLabels}
+                className="text-[11px] text-amber-700 underline"
+              >
+                Reset Defaults
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-stone-500 mb-0.5">Description Heading</label>
+                <input
+                  type="text"
+                  value={labels.description}
+                  onChange={(e) => handleColumnLabelChange('description', e.target.value)}
+                  className="w-full px-2 py-1 text-xs bg-white border border-stone-300 rounded-md font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-stone-500 mb-0.5">Unit Price Heading</label>
+                <input
+                  type="text"
+                  value={labels.unitPrice}
+                  onChange={(e) => handleColumnLabelChange('unitPrice', e.target.value)}
+                  className="w-full px-2 py-1 text-xs bg-white border border-stone-300 rounded-md font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-stone-500 mb-0.5">First Multiplier (e.g. Pieces)</label>
+                <input
+                  type="text"
+                  value={labels.pieces}
+                  onChange={(e) => handleColumnLabelChange('pieces', e.target.value)}
+                  className="w-full px-2 py-1 text-xs bg-white border border-stone-300 rounded-md font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-stone-500 mb-0.5">Second Multiplier (e.g. Quantity)</label>
+                <input
+                  type="text"
+                  value={labels.quantity}
+                  onChange={(e) => handleColumnLabelChange('quantity', e.target.value)}
+                  className="w-full px-2 py-1 text-xs bg-white border border-stone-300 rounded-md font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-stone-500 mb-0.5">Total Pieces Label</label>
+                <input
+                  type="text"
+                  value={labels.totalPieces}
+                  onChange={(e) => handleColumnLabelChange('totalPieces', e.target.value)}
+                  className="w-full px-2 py-1 text-xs bg-white border border-stone-300 rounded-md font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-stone-500 mb-0.5">Final Price Heading</label>
+                <input
+                  type="text"
+                  value={labels.finalPrice}
+                  onChange={(e) => handleColumnLabelChange('finalPrice', e.target.value)}
+                  className="w-full px-2 py-1 text-xs bg-white border border-stone-300 rounded-md font-semibold"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Dynamic Items Table / Responsive Rows */}
         <div className="space-y-3">
-          {/* Header Row (Visible on tablet & desktop) */}
-          <div className="hidden md:grid grid-cols-12 gap-3 px-3 py-2 bg-stone-100/75 rounded-xl text-xs font-bold text-stone-600 uppercase tracking-wider">
-            <div className="col-span-1 text-center">#</div>
-            <div className="col-span-5">Value Name / Description</div>
-            <div className="col-span-2 text-right">One Piece Price ({invoice.currencySymbol})</div>
-            <div className="col-span-2 text-right">Number of Pieces</div>
-            <div className="col-span-1 text-right">Auto Total</div>
-            <div className="col-span-1 text-center">Actions</div>
+          {/* Editable Header Row (Visible on tablet & desktop) */}
+          <div className="hidden md:grid grid-cols-12 gap-2 px-3 py-2.5 bg-stone-100 rounded-xl text-xs font-bold text-stone-700 items-center border border-stone-200/80">
+            <div className="col-span-1 text-center uppercase tracking-wider">#</div>
+            <div className="col-span-3">
+              <input
+                type="text"
+                value={labels.description}
+                onChange={(e) => handleColumnLabelChange('description', e.target.value)}
+                title="Click to edit column name"
+                placeholder="Value Name / Description"
+                className="w-full px-2 py-1 rounded-md bg-white/80 hover:bg-white focus:bg-white border border-dashed border-stone-300 focus:border-amber-500 text-xs font-bold text-stone-800 uppercase tracking-wider outline-none transition-colors"
+              />
+            </div>
+            <div className="col-span-2">
+              <input
+                type="text"
+                value={labels.unitPrice}
+                onChange={(e) => handleColumnLabelChange('unitPrice', e.target.value)}
+                title="Click to edit price column name"
+                placeholder="One Piece Price"
+                className="w-full px-2 py-1 rounded-md bg-white/80 hover:bg-white focus:bg-white border border-dashed border-stone-300 focus:border-amber-500 text-xs font-bold text-stone-800 uppercase tracking-wider text-right outline-none transition-colors"
+              />
+            </div>
+            <div className="col-span-3">
+              <div className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={labels.pieces}
+                  onChange={(e) => handleColumnLabelChange('pieces', e.target.value)}
+                  title="Click to rename 'Pieces' (e.g. Students, Boxes, Sets)"
+                  placeholder="Pieces"
+                  className="w-full px-1.5 py-1 rounded-md bg-white/80 hover:bg-white focus:bg-white border border-dashed border-stone-300 focus:border-amber-500 text-[11px] font-bold text-stone-800 uppercase tracking-wider text-center outline-none transition-colors"
+                />
+                <span className="text-stone-400 font-black select-none">&times;</span>
+                <input
+                  type="text"
+                  value={labels.quantity}
+                  onChange={(e) => handleColumnLabelChange('quantity', e.target.value)}
+                  title="Click to rename 'Quantity' (e.g. Subjects, Days, Qty)"
+                  placeholder="Quantity"
+                  className="w-full px-1.5 py-1 rounded-md bg-white/80 hover:bg-white focus:bg-white border border-dashed border-stone-300 focus:border-amber-500 text-[11px] font-bold text-stone-800 uppercase tracking-wider text-center outline-none transition-colors"
+                />
+                <span className="text-stone-400 font-black select-none">=</span>
+                <input
+                  type="text"
+                  value={labels.totalPieces}
+                  onChange={(e) => handleColumnLabelChange('totalPieces', e.target.value)}
+                  title="Click to rename 'Total Pcs' (e.g. Total Papers, Total Units)"
+                  placeholder="Total Pcs"
+                  className="w-full px-1.5 py-1 rounded-md bg-emerald-50/90 hover:bg-white focus:bg-white border border-dashed border-emerald-300 focus:border-amber-500 text-[11px] font-bold text-emerald-900 uppercase tracking-wider text-center outline-none transition-colors"
+                />
+              </div>
+            </div>
+            <div className="col-span-2">
+              <input
+                type="text"
+                value={labels.finalPrice}
+                onChange={(e) => handleColumnLabelChange('finalPrice', e.target.value)}
+                title="Click to edit final price column name"
+                placeholder="Final Price"
+                className="w-full px-2 py-1 rounded-md bg-white/80 hover:bg-white focus:bg-white border border-dashed border-stone-300 focus:border-amber-500 text-xs font-bold text-stone-800 uppercase tracking-wider text-right outline-none transition-colors"
+              />
+            </div>
+            <div className="col-span-1 text-center uppercase tracking-wider">Actions</div>
           </div>
 
           {/* Line items list */}
           {invoice.items.map((item, index) => {
+            const mult = item.multiplier !== undefined && item.multiplier !== null ? item.multiplier : 1;
+            const totalPieces = calculateTotalPieces(item);
             const lineTotal = calculateItemTotal(item);
 
             return (
@@ -582,9 +758,9 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   </div>
 
                   {/* Field 1: Value Name */}
-                  <div className="md:col-span-5">
+                  <div className="md:col-span-3">
                     <label className="block md:hidden text-[11px] font-semibold text-stone-600 mb-1">
-                      Value Name / Description
+                      {labels.description}
                     </label>
                     <input
                       id={`item-name-${index}`}
@@ -597,7 +773,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                           addItem();
                         }
                       }}
-                      placeholder="e.g. Widget Model X, Consulting Hour, Custom Service"
+                      placeholder={`Enter ${labels.description.toLowerCase()}...`}
                       className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-stone-300 rounded-lg text-stone-900 placeholder:text-stone-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-400 outline-none"
                     />
                   </div>
@@ -605,7 +781,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   {/* Field 2: One Piece Price */}
                   <div className="md:col-span-2">
                     <label className="block md:hidden text-[11px] font-semibold text-stone-600 mb-1">
-                      One Piece Price ({invoice.currencySymbol})
+                      {labels.unitPrice} ({invoice.currencySymbol})
                     </label>
                     <div className="relative">
                       <span className="absolute left-2.5 top-2 text-xs font-mono font-medium text-stone-400 pointer-events-none">
@@ -624,45 +800,76 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     </div>
                   </div>
 
-                  {/* Field 3: Number of Pieces */}
-                  <div className="md:col-span-2">
+                  {/* Field 3: Editable Pieces × Quantity = Total Pieces */}
+                  <div className="md:col-span-3">
                     <label className="block md:hidden text-[11px] font-semibold text-stone-600 mb-1">
-                      Number of Pieces (Qty)
+                      {labels.pieces} &times; {labels.quantity} = {labels.totalPieces}
                     </label>
-                    <div className="flex items-center">
-                      <button
-                        type="button"
-                        onClick={() => handleItemChange(index, 'quantity', Math.max(0, item.quantity - 1))}
-                        className="w-8 h-9 rounded-l-lg bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold text-xs flex items-center justify-center transition-colors"
-                        title="Decrease pieces by 1"
-                      >
-                        -
-                      </button>
-                      <input
-                        id={`item-qty-${index}`}
-                        type="number"
-                        min="0"
-                        step="any"
-                        value={item.quantity}
-                        onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                        className="w-full h-9 px-2 text-xs sm:text-sm font-mono text-center bg-white border-y border-stone-300 text-stone-900 focus:border-amber-500 outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleItemChange(index, 'quantity', item.quantity + 1)}
-                        className="w-8 h-9 rounded-r-lg bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold text-xs flex items-center justify-center transition-colors"
-                        title="Increase pieces by 1"
-                      >
-                        +
-                      </button>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        {/* Pieces Input */}
+                        <div className="flex-1">
+                          <input
+                            id={`item-qty-${index}`}
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={item.quantity}
+                            onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                            placeholder={labels.pieces}
+                            title={labels.pieces}
+                            className="w-full h-9 px-2 text-xs sm:text-sm font-mono text-center bg-white border border-stone-300 rounded-lg text-stone-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-400 outline-none"
+                          />
+                        </div>
+
+                        <span className="text-xs font-bold text-stone-400 px-0.5 select-none" title="Multiplied by">
+                          &times;
+                        </span>
+
+                        {/* Quantity / Multiplier Input */}
+                        <div className="flex-1">
+                          <input
+                            id={`item-mult-${index}`}
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={mult}
+                            onChange={(e) => handleItemChange(index, 'multiplier', e.target.value)}
+                            placeholder={labels.quantity}
+                            title={labels.quantity}
+                            className="w-full h-9 px-2 text-xs sm:text-sm font-mono text-center bg-white border border-stone-300 rounded-lg text-stone-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-400 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Live Total Pieces Badge */}
+                      <div className="flex items-center justify-between px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200/80 text-[11px] font-mono text-emerald-800">
+                        <span className="text-[10px] font-sans font-medium text-emerald-700">
+                          {item.quantity} {labels.pieces} &times; {mult} {labels.quantity} =
+                        </span>
+                        <span className="font-bold">
+                          {totalPieces} {labels.totalPieces}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Field 4: Auto Multiply Total */}
-                  <div className="hidden md:block md:col-span-1 text-right">
-                    <span className="font-mono text-xs font-bold text-stone-900 block truncate" title={`Auto multiplied: ${item.unitPrice} × ${item.quantity}`}>
-                      {formatCurrency(lineTotal, invoice.currencySymbol)}
-                    </span>
+                  {/* Field 4: Final Price (Total Pieces × One Piece Price) */}
+                  <div className="md:col-span-2 text-right">
+                    <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center bg-white md:bg-transparent px-3 py-1.5 md:p-0 rounded-lg border border-stone-200 md:border-none">
+                      <span className="md:hidden text-[11px] font-semibold text-stone-500">
+                        {labels.finalPrice} ({totalPieces} &times; {invoice.currencySymbol}{item.unitPrice}):
+                      </span>
+                      <span
+                        className="font-mono text-xs sm:text-sm font-bold text-stone-900 block truncate"
+                        title={`${totalPieces} ${labels.totalPieces} × ${item.unitPrice} = ${lineTotal}`}
+                      >
+                        {formatCurrency(lineTotal, invoice.currencySymbol)}
+                      </span>
+                      <span className="hidden md:block text-[10px] font-mono text-stone-400">
+                        {totalPieces} &times; {invoice.currencySymbol}{item.unitPrice}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Actions (Duplicate, Delete, Move) */}
@@ -706,54 +913,92 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
       </div>
 
-      {/* TOTAL AT THE END SECTION (Subtotal, Tax/Discount, Grand Total) */}
+      {/* TOTAL AT THE END SECTION (Subtotal, Discount Option, Tax, Grand Total) */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
         <div className="flex items-center justify-between mb-4 pb-2 border-b border-stone-100">
-          <h3 className="text-sm font-bold text-stone-900">Total Summary</h3>
-          <button
-            type="button"
-            onClick={() => setShowTaxDiscount(!showTaxDiscount)}
-            className="text-xs text-stone-500 hover:text-stone-800 font-medium flex items-center gap-1"
-          >
-            <Percent className="w-3.5 h-3.5 text-stone-400" />
-            <span>{showTaxDiscount ? 'Hide Tax/Discount' : 'Add Tax / Discount %'}</span>
-            {showTaxDiscount ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-md bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+              <Tag className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-stone-900">Discount &amp; Total Summary</h3>
+              <p className="text-[11px] text-stone-500">Apply discount (flat amount or %) and optional tax before final total</p>
+            </div>
+          </div>
         </div>
 
-        {showTaxDiscount && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 p-3 bg-stone-50 rounded-xl border border-stone-200">
-            <div>
-              <label htmlFor="tax-rate" className="block text-xs font-semibold text-stone-700 mb-1">
-                Tax Rate (%)
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 p-3.5 bg-stone-50 rounded-xl border border-stone-200">
+          {/* Discount Input (Flat Amount or Percentage) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="discount-input" className="text-xs font-bold text-stone-700 flex items-center gap-1">
+                <span>Discount at the End</span>
               </label>
-              <div className="relative">
-                <input
-                  id="tax-rate"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={invoice.taxRate}
-                  onChange={(e) =>
+              <div className="inline-flex rounded-lg bg-stone-200/80 p-0.5 text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() =>
                     onChange({
                       ...invoice,
-                      taxRate: Math.max(0, parseFloat(e.target.value) || 0),
+                      discountType: 'amount',
+                      updatedAt: new Date().toISOString(),
                     })
                   }
-                  className="w-full pl-3 pr-7 py-1.5 text-xs font-mono bg-white border border-stone-300 rounded-lg focus:border-amber-500 outline-none"
-                />
-                <span className="absolute right-2.5 top-1.5 text-xs text-stone-400 pointer-events-none">%</span>
+                  className={`px-2 py-0.5 rounded-md transition-colors ${
+                    discountType === 'amount'
+                      ? 'bg-white text-stone-900 shadow-2xs'
+                      : 'text-stone-600 hover:text-stone-900'
+                  }`}
+                >
+                  Amount ({invoice.currencySymbol})
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      ...invoice,
+                      discountType: 'percent',
+                      updatedAt: new Date().toISOString(),
+                    })
+                  }
+                  className={`px-2 py-0.5 rounded-md transition-colors ${
+                    discountType === 'percent'
+                      ? 'bg-white text-stone-900 shadow-2xs'
+                      : 'text-stone-600 hover:text-stone-900'
+                  }`}
+                >
+                  Percent (%)
+                </button>
               </div>
             </div>
 
-            <div>
-              <label htmlFor="discount-rate" className="block text-xs font-semibold text-stone-700 mb-1">
-                Discount Rate (%)
-              </label>
+            {discountType === 'amount' ? (
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-xs font-mono font-semibold text-stone-400 pointer-events-none">
+                  {invoice.currencySymbol}
+                </span>
+                <input
+                  id="discount-input"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={invoice.discountAmountValue || 0}
+                  onChange={(e) =>
+                    onChange({
+                      ...invoice,
+                      discountType: 'amount',
+                      discountAmountValue: Math.max(0, parseFloat(e.target.value) || 0),
+                      updatedAt: new Date().toISOString(),
+                    })
+                  }
+                  placeholder="0.00"
+                  className="w-full pl-8 pr-3 py-2 text-xs sm:text-sm font-mono bg-white border border-stone-300 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-400 outline-none"
+                />
+              </div>
+            ) : (
               <div className="relative">
                 <input
-                  id="discount-rate"
+                  id="discount-input"
                   type="number"
                   min="0"
                   max="100"
@@ -762,30 +1007,65 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   onChange={(e) =>
                     onChange({
                       ...invoice,
+                      discountType: 'percent',
                       discountRate: Math.max(0, parseFloat(e.target.value) || 0),
+                      updatedAt: new Date().toISOString(),
                     })
                   }
-                  className="w-full pl-3 pr-7 py-1.5 text-xs font-mono bg-white border border-stone-300 rounded-lg focus:border-amber-500 outline-none"
+                  placeholder="0"
+                  className="w-full pl-3 pr-7 py-2 text-xs sm:text-sm font-mono bg-white border border-stone-300 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-400 outline-none"
                 />
-                <span className="absolute right-2.5 top-1.5 text-xs text-stone-400 pointer-events-none">%</span>
+                <span className="absolute right-3 top-2 text-xs font-mono font-semibold text-stone-400 pointer-events-none">
+                  %
+                </span>
               </div>
+            )}
+          </div>
+
+          {/* Tax Rate Input */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="tax-rate" className="block text-xs font-bold text-stone-700">
+                Tax Rate (%) <span className="text-stone-400 font-normal">(Optional)</span>
+              </label>
+            </div>
+            <div className="relative">
+              <input
+                id="tax-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={invoice.taxRate}
+                onChange={(e) =>
+                  onChange({
+                    ...invoice,
+                    taxRate: Math.max(0, parseFloat(e.target.value) || 0),
+                    updatedAt: new Date().toISOString(),
+                  })
+                }
+                className="w-full pl-3 pr-7 py-2 text-xs sm:text-sm font-mono bg-white border border-stone-300 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-400 outline-none"
+              />
+              <span className="absolute right-3 top-2 text-xs font-mono font-semibold text-stone-400 pointer-events-none">%</span>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Calculation breakdown */}
-        <div className="space-y-2 max-w-sm ml-auto text-sm">
+        <div className="space-y-2.5 max-w-sm ml-auto text-sm">
           <div className="flex justify-between text-stone-600">
-            <span>Subtotal ({invoice.items.length} items):</span>
+            <span>Subtotal ({invoice.items.length} {invoice.items.length === 1 ? 'item' : 'items'}):</span>
             <span className="font-mono font-medium">{formatCurrency(subtotal, invoice.currencySymbol)}</span>
           </div>
 
-          {invoice.discountRate > 0 && (
-            <div className="flex justify-between text-emerald-700">
-              <span>Discount ({invoice.discountRate}%):</span>
-              <span className="font-mono font-medium">-{formatCurrency(discountAmount, invoice.currencySymbol)}</span>
-            </div>
-          )}
+          <div className="flex justify-between items-center text-emerald-700">
+            <span>
+              Discount{discountType === 'percent' && invoice.discountRate > 0 ? ` (${invoice.discountRate}%)` : ''}:
+            </span>
+            <span className="font-mono font-semibold">
+              -{formatCurrency(discountAmount, invoice.currencySymbol)}
+            </span>
+          </div>
 
           {invoice.taxRate > 0 && (
             <div className="flex justify-between text-stone-600">
@@ -794,10 +1074,10 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
             </div>
           )}
 
-          <div className="pt-2 border-t-2 border-stone-900 flex justify-between items-baseline">
+          <div className="pt-2.5 border-t-2 border-stone-900 flex justify-between items-baseline">
             <div>
               <span className="text-base font-extrabold text-stone-900">Total at the End:</span>
-              <p className="text-[11px] text-stone-500 font-normal">Auto-calculated final balance</p>
+              <p className="text-[11px] text-stone-500 font-normal">Final price after discount</p>
             </div>
             <span className="text-xl sm:text-2xl font-black font-mono text-stone-950">
               {formatCurrency(grandTotal, invoice.currencySymbol)}
